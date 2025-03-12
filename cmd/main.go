@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/Snake1-1eyes/Yandex_Service/internal/config"
 	"github.com/Snake1-1eyes/Yandex_Service/internal/service"
 	test "github.com/Snake1-1eyes/Yandex_Service/pkg/api/test/api"
 	"github.com/Snake1-1eyes/Yandex_Service/pkg/logger"
@@ -18,20 +19,17 @@ func main() {
 	ctx := context.Background()
 	ctx, _ = logger.New(ctx)
 
-	pgConfig := postgres.Config{
-		Host:     "localhost",
-		Port:     "5432",
-		Username: "root",
-		Password: "1234",
-		Database: "postgres",
+	cfg, err := config.New()
+	if err != nil {
+		logger.GetLoggerFromCtx(ctx).Fatal(ctx, "failed to load config", zap.Error(err))
 	}
 
-	_, err := postgres.New(&pgConfig)
+	_, err = postgres.New(&cfg.Postgres)
 	if err != nil {
 		logger.GetLoggerFromCtx(ctx).Fatal(ctx, "failed to connect to database: %w", zap.Error(err))
 	}
 
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", 50051))
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", cfg.GRPCPort))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}

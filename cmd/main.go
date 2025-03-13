@@ -35,7 +35,7 @@ func main() {
 	}
 
 	srv := service.New()
-	server := grpc.NewServer()
+	server := grpc.NewServer(grpc.UnaryInterceptor(logger.LoggerInterceptor))
 	test.RegisterOrderServiceServer(server, srv)
 
 	if err := server.Serve(lis); err != nil {

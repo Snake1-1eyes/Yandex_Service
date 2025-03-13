@@ -2,8 +2,11 @@ package logger
 
 import (
 	"context"
+	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -40,4 +43,20 @@ func (l *Logger) Fatal(ctx context.Context, msg string, fields ...zap.Field) {
 		fields = append(fields, zap.String(RequestID, ctx.Value(RequestID).(string)))
 	}
 	l.l.Fatal(msg, fields...)
+}
+
+func LoggerInterceptor(
+	ctx context.Context,
+	req any,
+	info *grpc.UnaryServerInfo,
+	next grpc.UnaryHandler,
+) (any, error) {
+	guid := uuid.New().String()
+	ctx = context.WithValue(ctx, RequestID, guid)
+
+	GetLoggerFromCtx(ctx).Info(ctx,
+		"request", zap.String("method", info.FullMethod),
+		zap.Time("request time", time.Now()),
+	)
+	return next(ctx, req)
 }

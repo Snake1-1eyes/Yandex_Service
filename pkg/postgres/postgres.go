@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -20,19 +18,16 @@ type Config struct {
 }
 
 func New(ctx context.Context, config *Config) (*pgxpool.Pool, error) {
-	conn, err := pgxpool.NewWithConfig(ctx, &pgxpool.Config{
-		ConnConfig: &pgx.ConnConfig{
-			Config: pgconn.Config{
-				Host:     config.Host,
-				Port:     config.Port,
-				User:     config.Username,
-				Password: config.Password,
-				Database: config.Database,
-			},
-		},
-		MaxConns: config.MaxConns,
-		MinConns: config.MinConns,
-	})
+	connString := fmt.Sprintf("postgres://%s:%s@%s:%d/%s&pool_max_conns=%d&pool_min_conns=%d",
+		config.Username,
+		config.Password,
+		config.Host,
+		config.Port,
+		config.Database,
+		config.MaxConns, config.MinConns,
+	)
+
+	conn, err := pgxpool.New(ctx, connString)
 	if err != nil {
 		return nil, fmt.Errorf("pgx.Connect: %w", err)
 	}

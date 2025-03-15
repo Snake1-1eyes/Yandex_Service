@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 
 	"github.com/Snake1-1eyes/Yandex_Service/internal/config"
 	"github.com/Snake1-1eyes/Yandex_Service/internal/service"
@@ -17,6 +19,8 @@ import (
 
 func main() {
 	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
+	defer stop()
 	ctx, _ = logger.New(ctx)
 
 	cfg, err := config.New()
@@ -24,7 +28,7 @@ func main() {
 		logger.GetLoggerFromCtx(ctx).Fatal(ctx, "failed to load config", zap.Error(err))
 	}
 
-	_, err = postgres.New(&cfg.Postgres)
+	pool, err := postgres.New(ctx, &cfg.Postgres)
 	if err != nil {
 		logger.GetLoggerFromCtx(ctx).Fatal(ctx, "failed to connect to database: %w", zap.Error(err))
 	}
@@ -38,7 +42,16 @@ func main() {
 	server := grpc.NewServer(grpc.UnaryInterceptor(logger.LoggerInterceptor))
 	test.RegisterOrderServiceServer(server, srv)
 
-	if err := server.Serve(lis); err != nil {
-		logger.GetLoggerFromCtx(ctx).Info(ctx, "failed to serve: %w", zap.Error(err))
+	go func() {
+		if err := server.Serve(lis); err != nil {
+			logger.GetLoggerFromCtx(ctx).Info(ctx, "failed to serve: %w", zap.Error(err))
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		server.Stop()
+		pool.Close()
+		logger.GetLoggerFromCtx(ctx).Info(ctx, "Server stoped")
 	}
 }

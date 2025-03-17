@@ -5,16 +5,20 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 
 	"github.com/Snake1-1eyes/Yandex_Service/internal/config"
 	"github.com/Snake1-1eyes/Yandex_Service/internal/service"
 	test "github.com/Snake1-1eyes/Yandex_Service/pkg/api/test/api"
 	"github.com/Snake1-1eyes/Yandex_Service/pkg/logger"
 	"github.com/Snake1-1eyes/Yandex_Service/pkg/postgres"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -41,6 +45,19 @@ func main() {
 	srv := service.New()
 	server := grpc.NewServer(grpc.UnaryInterceptor(logger.LoggerInterceptor))
 	test.RegisterOrderServiceServer(server, srv)
+
+	rt := runtime.NewServeMux()
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	err = test.RegisterOrderServiceHandlerFromEndpoint(ctx, rt, "localhost:"+strconv.Itoa(cfg.GRPCPort), opts)
+	if err != nil {
+		logger.GetLoggerFromCtx(ctx).Fatal(ctx, "failed to register handler server", zap.Error(err))
+	}
+
+	go func() {
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.RestPORT), rt); err != nil {
+			logger.GetLoggerFromCtx(ctx).Info(ctx, "failed to serve: %w", zap.Error(err))
+		}
+	}()
 
 	go func() {
 		if err := server.Serve(lis); err != nil {

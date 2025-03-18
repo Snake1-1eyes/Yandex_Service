@@ -37,13 +37,13 @@ func main() {
 		logger.GetLoggerFromCtx(ctx).Fatal(ctx, "failed to connect to database: %w", zap.Error(err))
 	}
 
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", cfg.GRPCPort))
+	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", cfg.GRPCPort))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
 	srv := service.New()
-	server := grpc.NewServer(grpc.UnaryInterceptor(logger.LoggerInterceptor))
+	server := grpc.NewServer(grpc.UnaryInterceptor(logger.InterceptorWithLogger(ctx, logger.GetLoggerFromCtx(ctx))))
 	test.RegisterOrderServiceServer(server, srv)
 
 	rt := runtime.NewServeMux()
